@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pakistan Monsoon Flood Simulator</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --color-text-primary: #1a1a18;
+    --color-text-secondary: #5f5e5a;
+    --color-text-tertiary: #888780;
+    --color-text-info: #185FA5;
+    --color-text-danger: #A32D2D;
+    --color-background-primary: #ffffff;
+    --color-background-secondary: #f1efe8;
+    --color-border-tertiary: rgba(60,60,55,0.15);
+    --color-border-secondary: rgba(60,60,55,0.3);
+    --color-border-info: #378ADD;
+    --color-background-info: #E6F1FB;
+    --border-radius-md: 8px;
+    --border-radius-lg: 12px;
+    --font-sans: system-ui, -apple-system, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-text-primary: #e8e6df;
+      --color-text-secondary: #b4b2a9;
+      --color-text-tertiary: #888780;
+      --color-text-info: #85B7EB;
+      --color-text-danger: #F09595;
+      --color-background-primary: #1e1e1c;
+      --color-background-secondary: #2c2c2a;
+      --color-border-tertiary: rgba(200,200,190,0.15);
+      --color-border-secondary: rgba(200,200,190,0.3);
+      --color-border-info: #85B7EB;
+      --color-background-info: #042C53;
+    }
+  }
+  body {
+    font-family: var(--font-sans);
+    background: var(--color-background-primary);
+    color: var(--color-text-primary);
+    min-height: 100vh;
+    padding: 2rem 1rem;
+  }
+  .container { max-width: 740px; margin: 0 auto; }
+  .page-header { margin-bottom: 2rem; padding-bottom: 1.25rem; border-bottom: 0.5px solid var(--color-border-tertiary); }
+  .page-header h1 { font-size: 22px; font-weight: 500; margin-bottom: 6px; }
+  .page-header p { font-size: 14px; color: var(--color-text-secondary); line-height: 1.6; }
+  .badge { display: inline-block; font-size: 11px; padding: 3px 10px; border-radius: 20px; background: var(--color-background-info); color: var(--color-text-info); margin-bottom: 10px; }
+
+  .sim-wrap { }
+  .header { font-size: 16px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 4px; }
+  .sub { font-size: 13px; color: var(--color-text-secondary); margin-bottom: 1.5rem; }
+  .controls { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 1.25rem; align-items: flex-end; }
+  .ctrl-group { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 140px; }
+  .ctrl-label { font-size: 12px; color: var(--color-text-secondary); }
+  .ctrl-val { font-size: 13px; font-weight: 500; color: var(--color-text-primary); }
+  input[type=range] { width: 100%; accent-color: var(--color-border-info); }
+  select {
+    width: 100%; padding: 6px 8px; font-size: 13px;
+    background: var(--color-background-primary); color: var(--color-text-primary);
+    border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md);
+    cursor: pointer;
+  }
+  .metrics { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-bottom: 1.25rem; }
+  .metric { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 12px 14px; }
+  .metric-label { font-size: 11px; color: var(--color-text-secondary); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .metric-val { font-size: 20px; font-weight: 500; color: var(--color-text-primary); }
+  .metric-val.danger { color: var(--color-text-danger); }
+  .metric-val.warn { color: #854F0B; }
+  @media (prefers-color-scheme: dark) { .metric-val.warn { color: #FAC775; } }
+  .map-wrap { position: relative; background: var(--color-background-secondary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); overflow: hidden; margin-bottom: 1.25rem; }
+  .map-legend { position: absolute; bottom: 12px; right: 12px; background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); padding: 8px 12px; font-size: 11px; color: var(--color-text-secondary); }
+  .leg-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .leg-row:last-child { margin-bottom: 0; }
+  .leg-sq { width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; }
+  .timeline { margin-bottom: 1.25rem; }
+  .tl-label { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 6px; }
+  .tl-bars { display: flex; align-items: flex-end; gap: 3px; height: 60px; }
+  .tl-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; height: 100%; justify-content: flex-end; }
+  .tl-bar { width: 100%; border-radius: 2px 2px 0 0; cursor: pointer; transition: opacity 0.15s; min-height: 4px; }
+  .tl-bar:hover { opacity: 0.75; }
+  .tl-yr { font-size: 9px; color: var(--color-text-tertiary); }
+  .impacts-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; margin-bottom: 1.25rem; }
+  .impact-card { border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); padding: 12px; background: var(--color-background-primary); }
+  .impact-icon { font-size: 18px; margin-bottom: 6px; }
+  .impact-title { font-size: 12px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 4px; }
+  .impact-body { font-size: 11px; color: var(--color-text-secondary); line-height: 1.5; }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  button {
+    background: transparent; border: 0.5px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-md); padding: 7px 14px;
+    font-size: 13px; color: var(--color-text-primary); cursor: pointer;
+    transition: background 0.15s; font-family: var(--font-sans);
+  }
+  button:hover { background: var(--color-background-secondary); }
+  button.active { background: var(--color-background-info); border-color: var(--color-border-info); color: var(--color-text-info); }
+  .view-btns { display: flex; gap: 8px; }
+  .footer { margin-top: 2rem; padding-top: 1.25rem; border-top: 0.5px solid var(--color-border-tertiary); font-size: 12px; color: var(--color-text-tertiary); line-height: 1.6; }
+  @media (max-width: 500px) {
+    .metrics { grid-template-columns: repeat(2,1fr); }
+    .impacts-grid { grid-template-columns: 1fr 1fr; }
+    .controls { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="page-header">
+    <div class="badge">Interactive Simulation</div>
+    <h1>Pakistan Monsoon Flood Simulator</h1>
+    <p>Explore the human, economic, and geographic impact of annual monsoon flooding across Pakistan (1990–2023). Select a year or severity level to see how floods reshape lives, livelihoods, and landscapes.</p>
+  </div>
+
+  <div class="sim-wrap">
+    <div class="controls">
+      <div class="ctrl-group">
+        <span class="ctrl-label">Flood severity</span>
+        <input type="range" id="severity" min="1" max="3" step="1" value="3" oninput="update()">
+        <span class="ctrl-val" id="sev-label">Catastrophic</span>
+      </div>
+      <div class="ctrl-group">
+        <span class="ctrl-label">Year</span>
+        <select id="year-sel" onchange="selectYear(this.value)">
+          <option value="2022">2022 — Catastrophic</option>
+          <option value="2020">2020 — Severe</option>
+          <option value="2014">2014 — Major</option>
+          <option value="2010">2010 — Historic</option>
+          <option value="2011">2011 — Significant</option>
+          <option value="2015">2015 — Moderate</option>
+          <option value="2019">2019 — Moderate</option>
+        </select>
+      </div>
+      <div class="ctrl-group">
+        <span class="ctrl-label">View mode</span>
+        <div class="view-btns">
+          <button id="btn-human" class="active" onclick="setView('human')">Human</button>
+          <button id="btn-econ" onclick="setView('econ')">Economic</button>
+          <button id="btn-geo" onclick="setView('geo')">Geographic</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="metrics">
+      <div class="metric"><div class="metric-label">People affected</div><div class="metric-val danger" id="m-people">33M</div></div>
+      <div class="metric"><div class="metric-label">Deaths</div><div class="metric-val danger" id="m-deaths">1,739</div></div>
+      <div class="metric"><div class="metric-label">Homes destroyed</div><div class="metric-val warn" id="m-homes">1.7M</div></div>
+      <div class="metric"><div class="metric-label">Economic loss</div><div class="metric-val warn" id="m-loss">$30B</div></div>
+    </div>
+
+    <div class="map-wrap">
+      <svg id="map-svg" width="100%" viewBox="0 0 560 480" style="display:block;">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </marker>
+        </defs>
+        <path d="M160,40 L200,30 L250,35 L310,25 L370,40 L400,70 L420,100 L430,140 L410,180 L420,220 L400,260 L390,300 L370,330 L340,360 L310,390 L280,420 L260,440 L240,430 L220,400 L200,370 L180,340 L160,310 L140,280 L130,240 L120,200 L100,170 L90,130 L100,90 L130,60 Z"
+          fill="none" stroke="rgba(100,100,90,0.3)" stroke-width="1.5"/>
+        <text x="340" y="110" text-anchor="middle" fill="var(--color-text-tertiary)" font-size="10" font-family="system-ui,sans-serif">KPK</text>
+        <text x="200" y="200" text-anchor="middle" fill="var(--color-text-tertiary)" font-size="10" font-family="system-ui,sans-serif">Balochistan</text>
+        <text x="330" y="240" text-anchor="middle" fill="var(--color-text-tertiary)" font-size="10" font-family="system-ui,sans-serif">Punjab</text>
+        <text x="260" y="360" text-anchor="middle" fill="var(--color-text-tertiary)" font-size="10" font-family="system-ui,sans-serif">Sindh</text>
+        <path d="M360,50 C350,90 340,130 310,170 C280,210 270,250 260,300 C250,340 245,380 240,420"
+          fill="none" stroke="#378ADD" stroke-width="3" stroke-linecap="round" opacity="0.55"/>
+        <g id="flood-zones"></g>
+        <g id="cities"></g>
+      </svg>
+      <div class="map-legend">
+        <div style="font-size:11px;font-weight:500;margin-bottom:6px;color:var(--color-text-primary)">Flood zones</div>
+        <div class="leg-row"><div class="leg-sq" style="background:#E24B4A88"></div><span>Severe flooding</span></div>
+        <div class="leg-row"><div class="leg-sq" style="background:#BA751788"></div><span>Moderate flooding</span></div>
+        <div class="leg-row"><div class="leg-sq" style="background:#378ADD55"></div><span>Inundation risk</span></div>
+        <div class="leg-row"><div class="leg-sq" style="background:#378ADD88;width:24px;height:4px;border-radius:2px"></div><span>Indus River</span></div>
+      </div>
+    </div>
+
+    <div class="timeline">
+      <div class="tl-label">Annual flood severity 1990–2023 — click a highlighted bar to load that year</div>
+      <div class="tl-bars" id="tl-bars"></div>
+    </div>
+
+    <div class="impacts-grid" id="impacts-grid"></div>
+
+    <div class="footer">
+      Data draws on NDMA Pakistan, UNOCHA, World Bank, and IPCC South Asia assessments. Flood extents are illustrative approximations for educational purposes. Created with the Pakistan Monsoon Flood Simulator.
+    </div>
+  </div>
+</div>
+
+<script>
+const YEARS = [
+  {yr:1990,sev:1.2},{yr:1992,sev:2.1},{yr:1994,sev:1.5},{yr:1995,sev:1.8},{yr:1998,sev:1.4},
+  {yr:2000,sev:2.0},{yr:2003,sev:2.3},{yr:2005,sev:1.9},{yr:2007,sev:2.5},{yr:2008,sev:1.7},
+  {yr:2010,sev:3.0},{yr:2011,sev:2.7},{yr:2012,sev:2.4},{yr:2014,sev:2.6},{yr:2015,sev:2.0},
+  {yr:2016,sev:1.6},{yr:2017,sev:2.0},{yr:2018,sev:1.5},{yr:2019,sev:2.0},{yr:2020,sev:2.6},
+  {yr:2021,sev:1.8},{yr:2022,sev:3.0},{yr:2023,sev:2.2}
+];
+
+const DATA = {
+  2022:{people:'33M',deaths:'1,739',homes:'1.7M',loss:'$30B',sev:3},
+  2020:{people:'15M',deaths:'423',homes:'580K',loss:'$4.5B',sev:2.6},
+  2014:{people:'18M',deaths:'367',homes:'500K',loss:'$5B',sev:2.6},
+  2010:{people:'20M',deaths:'1,985',homes:'1.9M',loss:'$10B',sev:3.0},
+  2011:{people:'9.5M',deaths:'520',homes:'1M',loss:'$3.7B',sev:2.7},
+  2015:{people:'4.5M',deaths:'238',homes:'180K',loss:'$2.1B',sev:2.0},
+  2019:{people:'5.3M',deaths:'169',homes:'200K',loss:'$1.8B',sev:2.0}
+};
+
+const CITIES = [
+  {name:'Karachi',x:215,y:415},{name:'Lahore',x:345,y:190},{name:'Islamabad',x:340,y:120},
+  {name:'Quetta',x:175,y:270},{name:'Peshawar',x:320,y:95},{name:'Hyderabad',x:250,y:375}
+];
+
+const FLOOD_ZONES = {
+  3:[
+    {cx:260,cy:360,r:80,col:'#E24B4A',op:0.35},{cx:310,cy:240,r:65,col:'#E24B4A',op:0.28},
+    {cx:175,cy:280,r:60,col:'#BA7517',op:0.28},{cx:330,cy:120,r:45,col:'#BA7517',op:0.25}
+  ],
+  2:[
+    {cx:310,cy:240,r:55,col:'#E24B4A',op:0.28},{cx:260,cy:360,r:55,col:'#BA7517',op:0.28},
+    {cx:330,cy:120,r:40,col:'#BA7517',op:0.22}
+  ],
+  1:[
+    {cx:310,cy:240,r:40,col:'#BA7517',op:0.22},{cx:330,cy:120,r:30,col:'#378ADD',op:0.22}
+  ]
+};
+
+const IMPACTS = {
+  human:[
+    {icon:'👥',title:'Displacement',body:'Millions forced to shelters. Women and children face greatest vulnerability in camps.'},
+    {icon:'🏥',title:'Health crisis',body:'Waterborne diseases spike — cholera, dengue, malaria. Health infrastructure overwhelmed.'},
+    {icon:'🍚',title:'Food insecurity',body:'Crop destruction and livestock loss drives acute hunger, especially in rural Sindh.'},
+    {icon:'🏫',title:'Education',body:'Schools used as relief camps for months. Millions of children miss schooling.'},
+    {icon:'👩‍🌾',title:'Livelihoods',body:'Smallholder farmers lose entire seasons. Recovery takes 3–5 years without support.'},
+    {icon:'🧒',title:'Children at risk',body:'Child malnutrition, trafficking risk, and psychosocial trauma spike post-flood.'}
+  ],
+  econ:[
+    {icon:'🌾',title:'Agriculture',body:'Pakistan\'s largest sector takes the biggest hit. Cotton, wheat, and rice most affected.'},
+    {icon:'🏗️',title:'Infrastructure',body:'Roads, bridges, and irrigation canals repeatedly destroyed — rebuilding cycle is costly.'},
+    {icon:'💸',title:'Fiscal pressure',body:'Government diverts development budgets to relief, widening the fiscal deficit.'},
+    {icon:'📉',title:'GDP contraction',body:'Severe flood years correlate with GDP growth drops of 0.5–2%.'},
+    {icon:'🌍',title:'Aid dependency',body:'Pakistan relies on international aid, yet funds rarely match needs or arrive too late.'},
+    {icon:'📦',title:'Trade disruption',body:'Exports drop as key commodities are destroyed before harvest or transit.'}
+  ],
+  geo:[
+    {icon:'🏔️',title:'Indus catchment',body:'The Indus basin drains Himalayan meltwater + monsoon rain simultaneously — a double trigger.'},
+    {icon:'🌧️',title:'Rainfall intensity',body:'Climate change is increasing peak rainfall events. 2022 saw 3× the normal monsoon.'},
+    {icon:'🏜️',title:'Balochistan flash floods',body:'Dry terrain can\'t absorb sudden rain. Flash floods reach lethal speed within hours.'},
+    {icon:'🌊',title:'Indus inundation',body:'Sindh\'s flat terrain means floodwaters recede slowly — areas stay submerged for months.'},
+    {icon:'🧊',title:'Glacial melt',body:'Glaciers in KPK and Gilgit-Baltistan are melting faster, amplifying monsoon runoff.'},
+    {icon:'🏙️',title:'Urban vulnerability',body:'Rapidly urbanised cities like Karachi lack drainage. Urban flooding is rising sharply.'}
+  ]
+};
+
+let currentView = 'human';
+
+function setView(v) {
+  currentView = v;
+  ['human','econ','geo'].forEach(x => document.getElementById('btn-'+x).classList.toggle('active', x===v));
+  renderImpacts();
+}
+
+function renderImpacts() {
+  document.getElementById('impacts-grid').innerHTML = IMPACTS[currentView].map(i =>
+    `<div class="impact-card"><div class="impact-icon">${i.icon}</div><div class="impact-title">${i.title}</div><div class="impact-body">${i.body}</div></div>`
+  ).join('');
+}
+
+function renderMap(sev) {
+  const zones = FLOOD_ZONES[Math.round(Math.min(3,Math.max(1,sev)))];
+  document.getElementById('flood-zones').innerHTML = zones.map(z =>
+    `<circle cx="${z.cx}" cy="${z.cy}" r="${z.r}" fill="${z.col}" opacity="${z.op}" stroke="${z.col}" stroke-width="0.5"/>`
+  ).join('');
+  document.getElementById('cities').innerHTML = CITIES.map(c =>
+    `<circle cx="${c.x}" cy="${c.y}" r="4" fill="var(--color-text-secondary)" opacity="0.5"/>
+     <text x="${c.x+6}" y="${c.y+4}" font-size="9" fill="var(--color-text-secondary)" font-family="system-ui,sans-serif">${c.name}</text>`
+  ).join('');
+}
+
+function selectYear(yr) {
+  const d = DATA[yr];
+  if (!d) return;
+  document.getElementById('m-people').textContent = d.people;
+  document.getElementById('m-deaths').textContent = d.deaths;
+  document.getElementById('m-homes').textContent = d.homes;
+  document.getElementById('m-loss').textContent = d.loss;
+  const s = Math.round(Math.min(3,Math.max(1,d.sev)));
+  document.getElementById('severity').value = s;
+  document.getElementById('sev-label').textContent = ['','Moderate','Severe','Catastrophic'][s];
+  renderMap(d.sev);
+}
+
+function update() {
+  const s = parseInt(document.getElementById('severity').value);
+  document.getElementById('sev-label').textContent = ['','Moderate','Severe','Catastrophic'][s];
+  renderMap(s);
+}
+
+function renderTimeline() {
+  const colors = {1:'#BA7517',2:'#E24B4A',3:'#A32D2D'};
+  document.getElementById('tl-bars').innerHTML = YEARS.map(y => {
+    const h = Math.round((y.sev / 3) * 52);
+    const c = colors[Math.round(Math.min(3,Math.max(1,y.sev)))] || '#BA7517';
+    const yrStr = String(y.yr);
+    const isData = !!DATA[yrStr];
+    return `<div class="tl-bar-wrap" title="${y.yr}: severity ${y.sev.toFixed(1)}">
+      <div class="tl-bar" style="height:${h}px;background:${c};opacity:${isData?1:0.4}"
+        onclick="${isData ? `document.getElementById('year-sel').value='${yrStr}';selectYear('${yrStr}')` : ''}"></div>
+      <span class="tl-yr">${yrStr.slice(2)}</span>
+    </div>`;
+  }).join('');
+}
+
+renderTimeline();
+renderImpacts();
+selectYear('2022');
+</script>
+</body>
+</html>
